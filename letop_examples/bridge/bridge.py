@@ -20,7 +20,7 @@ from letop.optimization import InfDimProblem, Constraint
 from letop.physics import hs
 from letop.optimization import nlspace_solve
 import itertools
-from firedrake import PETSc
+from firedrake.petsc import PETSc
 from solver_parameters import (
     gamg_parameters,
     hj_solver_parameters,
