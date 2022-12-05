@@ -37,7 +37,7 @@ def main():
     P = fd.FunctionSpace(mesh, "CG", 1)
     W = V * P
     w_sol = fd.Function(W)
-    brinkmann_penalty = 1e6
+    brinkmann_penalty = fd.Constant(1e6)
     F = NavierStokesBrinkmannForm(
         W, w_sol, phi, nu, brinkmann_penalty=brinkmann_penalty
     )
