@@ -34,18 +34,6 @@ par_loop(
         double min_value = 1e20;
         double max_value = -1e20;
 
-        double a_shift[3];
-
-        for (int i = 0; i < 3; i++) {
-            if (i != 2) {
-                a_shift[i] = a[i + 1];
-            }
-            else {
-                a_shift[i] = a[0];
-            }
-
-        }
-
         double node_flag[3] = { 1,1,1 };	//  
         double element_flag = 0;			// 
 
@@ -61,7 +49,7 @@ par_loop(
         
         for (int i = 0; i < 3; i++) {
 
-            min_value = fmin(0, a_shift[i]);
+            min_value = fmin(0, a[i]);
 
             if (min_value < 0) {
                 node_flag[i] = 0;
@@ -76,159 +64,100 @@ par_loop(
         double crossing_point_x[2] = { 0.0 };
         double crossing_point_y[2] = { 0.0 };
 
-        double triangle_1_x[3] = { 0.0 };
-        double triangle_1_y[3] = { 0.0 };
-        double det_triangle_1 = 0.0;
-        double B_triangle_1[2][2] = { 0.0 };
-        double b_triangle_1[2] = { 0.0 };
-        double w_q_triangle_1[3] = { 0.0 };			// Tranformed quadrature rule for the first triangle
-        double x_q_triangle_1[3] = { 0.0};
-        double y_q_triangle_1[3] = { 0.0 };
-
-        double triangle_2_x[3] = { 0.0 };
-        double triangle_2_y[3] = { 0.0 };
-        double det_triangle_2 = 0.0;
-        double B_triangle_2[2][2] = { 0.0 };
-        double b_triangle_2[2] = { 0.0 };
-        double w_q_triangle_2[3] = { 0.0 };			// Tranformed quadrature rule for the second triangle
-        double x_q_triangle_2[3] = { 0.0 };
-        double y_q_triangle_2[3] = { 0.0 };
-
-        double triangle_3_x[3] = { 0.0 };
-        double triangle_3_y[3] = { 0.0 };
-        double det_triangle_3 = 0.0;
-        double B_triangle_3[2][2] = { 0.0 };
-        double b_triangle_3[2] = { 0.0 };
-        double w_q_triangle_3[3] = { 0.0 };			// Tranformed quadrature rule for the third triangle
-        double x_q_triangle_3[3] = { 0.0 };
-        double y_q_triangle_3[3] = { 0.0 };
+        double triangle_x[3][3] = {{0.0}};
+        double triangle_y[3][3] = {{0.0}};
+        double det_triangle[3] = { 0.0 };
+        double B_triangle[3][2][2] = {{{ 0.0 }}};
+        double b_triangle[3][2] = { 0.0 };
+        double w_q_triangle[3][3] = { 0.0 };			// Tranformed quadrature rule for the first triangle
+        double x_q_triangle[3][3] = { 0.0};
+        double y_q_triangle[3][3] = { 0.0 };
 
         if (element_flag == 1 || element_flag == 6) {
 
-            crossing_point_x[0] = -a_shift[0] / (a_shift[1] - a_shift[0]); // a_shift[1] and a_shift[0] are different because of the different sign 
-            crossing_point_y[1] = -a_shift[0] / (a_shift[2] - a_shift[0]); // a_shift[2] and a_shift[0] are different because of the different sign
+            crossing_point_x[0] = -a[0] / (a[1] - a[0]); // a[1] and a[0] are different because of the different sign 
+            crossing_point_y[1] = -a[0] / (a[2] - a[0]); // a[2] and a[0] are different because of the different sign
 
             // Transformation for the first triangle
-            triangle_1_x[1] = crossing_point_x[0];
-            triangle_1_y[2] = crossing_point_y[1];
-            det_triangle_1 = crossing_point_x[0] * crossing_point_y[1];
-
-
+            triangle_x[0][1] = crossing_point_x[0];
+            triangle_y[0][2] = crossing_point_y[1];
+            
             // Transformation for the second triangle
-            triangle_2_x[0] = crossing_point_x[0];
-            triangle_2_y[1] = crossing_point_y[1];
-            triangle_2_x[2] = 1.0;
-            det_triangle_2 = (1-crossing_point_y[1])*crossing_point_x[0];
-
-
-            // Transformation for the third triangle
-            triangle_3_x[1] = 1.0;
-            triangle_3_y[0] = crossing_point_y[1];
-            triangle_3_y[2] = 1.0;
-            det_triangle_3 = 1 - crossing_point_y[1];
+            triangle_x[1][0] = crossing_point_x[0];
+            triangle_y[1][1] = crossing_point_y[1];
+            triangle_x[1][2] = 1.0;
             
-            
-
+            triangle_x[2][1] = 1.0;
+            triangle_y[2][0] = crossing_point_y[1];
+            triangle_y[2][2] = 1.0;
+        
         }
 
         if (element_flag == 2 || element_flag == 5) {
 
-            crossing_point_x[0] = -a_shift[0] / (a_shift[1] - a_shift[0]);	// See above
-            crossing_point_x[1] = -a_shift[2] / (a_shift[1]-a_shift[2]);
-            crossing_point_y[1] = a_shift[1] / (a_shift[1] - a_shift[2]);
+            crossing_point_x[0] = -a[0] / (a[1] - a[0]);	// See above
+            crossing_point_x[1] = -a[2] / (a[1]-a[2]);
+            crossing_point_y[1] = a[1] / (a[1] - a[2]);
 
-            triangle_1_x[0] = crossing_point_x[0];
-            triangle_1_x[1] = 1.0;
-            triangle_1_x[2] = crossing_point_x[1];
-            triangle_1_y[2] = crossing_point_y[1];
-            det_triangle_1 = (1-crossing_point_x[0]) * crossing_point_y[1];
+            triangle_x[0][0] = crossing_point_x[0];
+            triangle_x[0][1] = 1.0;
+            triangle_x[0][2] = crossing_point_x[1];
+            triangle_y[0][2] = crossing_point_y[1];
 
-            triangle_2_x[1] = crossing_point_x[0];
-            triangle_2_x[2] = crossing_point_x[1];
-            triangle_2_y[2] = crossing_point_y[1];
-            det_triangle_2 = crossing_point_x[0]* crossing_point_y[1];
+            triangle_x[1][1] = crossing_point_x[0];
+            triangle_x[1][2] = crossing_point_x[1];
+            triangle_y[1][2] = crossing_point_y[1];
 
-            triangle_3_x[1] = crossing_point_x[1];
-            triangle_3_y[1] = crossing_point_y[1];
-            triangle_3_y[2] = 1.0;
-            det_triangle_3 = 1 - crossing_point_y[1];
+            triangle_x[2][1] = crossing_point_x[1];
+            triangle_y[2][1] = crossing_point_y[1];
+            triangle_y[2][2] = 1.0;
 
         }
 
         if (element_flag == 3 || element_flag == 4) {
 
-            crossing_point_x[0] = -a_shift[2] / (a_shift[1] - a_shift[2]);	// See above
-            crossing_point_y[0] = a_shift[1] / (a_shift[1] - a_shift[2]);
-            crossing_point_y[1] = -a_shift[0] / (a_shift[2] - a_shift[0]);
+            crossing_point_x[0] = -a[2] / (a[1] - a[2]);	// See above
+            crossing_point_y[0] = a[1] / (a[1] - a[2]);
+            crossing_point_y[1] = -a[0] / (a[2] - a[0]);
 
-            triangle_1_y[0] = crossing_point_y[1];
-            triangle_1_x[1] = crossing_point_x[0];
-            triangle_1_y[1] = crossing_point_y[0];
-            triangle_1_y[2] = 1;
-            det_triangle_1 = (1 - crossing_point_x[0]) * crossing_point_y[1];
+            triangle_y[0][0] = crossing_point_y[1];
+            triangle_x[0][1] = crossing_point_x[0];
+            triangle_y[0][1] = crossing_point_y[0];
+            triangle_y[0][2] = 1;
 
-            triangle_2_x[1] = crossing_point_x[0];
-            triangle_2_y[1] = crossing_point_y[0];
-            triangle_2_y[2] = crossing_point_y[1];
-            det_triangle_2 = crossing_point_x[0] * crossing_point_y[1];
+            triangle_x[1][1] = crossing_point_x[0];
+            triangle_y[1][1] = crossing_point_y[0];
+            triangle_y[1][2] = crossing_point_y[1];
 
-            triangle_3_x[1] = 1;
-            triangle_3_x[2] = crossing_point_x[0];
-            triangle_3_y[2] = crossing_point_y[0];
-            det_triangle_3 = 1 - crossing_point_y[0];
+            triangle_x[2][1] = 1;
+            triangle_x[2][2] = crossing_point_x[0];
+            triangle_y[2][2] = crossing_point_y[0];
 
         }
+            
+        for (int j; j < 3; j++) {
+            det_triangle[j] = fabs((triangle_x[j][1] - triangle_x[j][0]) * (triangle_y[j][2] - triangle_y[j][0]) - (triangle_x[j][2] - triangle_x[j][0]) * (triangle_y[j][1] - triangle_y[j][0]));
 
-        // Matrix and vector for transformation to the first triangle
-        b_triangle_1[0] = triangle_1_x[0];
-        b_triangle_1[1] = triangle_1_y[0];
-        B_triangle_1[0][0] = triangle_1_x[1] - triangle_1_x[0];
-        B_triangle_1[1][0] = triangle_1_y[1] - triangle_1_y[0];
-        B_triangle_1[0][1] = triangle_1_x[2] - triangle_1_x[0];
-        B_triangle_1[1][1] = triangle_1_y[2] - triangle_1_y[0];
-        
-        // Matrix and vector for transformation to the second triangle
-        b_triangle_2[0] = triangle_2_x[0];
-        b_triangle_2[1] = triangle_2_y[0];
-        B_triangle_2[0][0] = triangle_2_x[1] - triangle_2_x[0];
-        B_triangle_2[1][0] = triangle_2_y[1] - triangle_2_y[0];
-        B_triangle_2[0][1] = triangle_2_x[2] - triangle_2_x[0];
-        B_triangle_2[1][1] = triangle_2_y[2] - triangle_2_y[0];
+            // Matrix and vector for transformation to the first triangle
+            b_triangle[j][0] = triangle_x[j][0];
+            b_triangle[j][1] = triangle_y[j][0];
+            B_triangle[j][0][0] = triangle_x[j][1] - triangle_x[j][0];
+            B_triangle[j][1][0] = triangle_y[j][1] - triangle_y[j][0];
+            B_triangle[j][0][1] = triangle_x[j][2] - triangle_x[j][0];
+            B_triangle[j][1][1] = triangle_y[j][2] - triangle_y[j][0];
 
-        // Matrix and vector for transformation to the third triangle
-        b_triangle_3[0] = triangle_3_x[0];
-        b_triangle_3[1] = triangle_3_y[0];
-        B_triangle_3[0][0] = triangle_3_x[1] - triangle_3_x[0];
-        B_triangle_3[1][0] = triangle_3_y[1] - triangle_3_y[0];
-        B_triangle_3[0][1] = triangle_3_x[2] - triangle_3_x[0];
-        B_triangle_3[1][1] = triangle_3_y[2] - triangle_3_y[0];
+            // Tranformation of the quadrature rule to the first sub triangle
+            for (int k = 0; k < 3; k++) { 
+                w_q_triangle[j][k] = det_triangle[j] * w_q[k];  
+                x_q_triangle[j][k] = B_triangle[j][0][0] * x_q[k] + B_triangle[j][0][1] * y_q[k] + b_triangle[j][0];
+                y_q_triangle[j][k] = B_triangle[j][1][0] * x_q[k] + B_triangle[j][1][1] * y_q[k] + b_triangle[j][1];
+            }
 
-        // Tranformation of the quadrature rule to the first sub triangle
-        for (int j = 0; j < 3; j++) { 
-            w_q_triangle_1[j] = det_triangle_1 * w_q[j];  
-            x_q_triangle_1[j] = B_triangle_1[0][0] * x_q[j] + B_triangle_1[0][1] * y_q[j] + b_triangle_1[0];
-            y_q_triangle_1[j] = B_triangle_1[1][0] * x_q[j] + B_triangle_1[1][1] * y_q[j] + b_triangle_1[1];
         }
-
-        // Tranformation of the quadrature rule to the second sub triangle
-        for (int j = 0; j < 3; j++) {
-            w_q_triangle_2[j] = det_triangle_2 * w_q[j];  
-            x_q_triangle_2[j] = B_triangle_2[0][0] * x_q[j] + B_triangle_2[0][1] * y_q[j] + b_triangle_2[0];
-            y_q_triangle_2[j] = B_triangle_2[1][0] * x_q[j] + B_triangle_2[1][1] * y_q[j] + b_triangle_2[1];
-        }
-
-        // Tranformation of the quadrature rule to the third sub triangle
-        for (int j = 0; j < 3; j++) {
-            w_q_triangle_3[j] = det_triangle_3 * w_q[j];  
-            x_q_triangle_3[j] = B_triangle_3[0][0] * x_q[j] + B_triangle_3[0][1] * y_q[j] + b_triangle_3[0];
-            y_q_triangle_3[j] = B_triangle_3[1][0] * x_q[j] + B_triangle_3[1][1] * y_q[j] + b_triangle_3[1];
-        }
-
-        int test = 0;
 
         for (int i=0; i<a.dofs; i++) {
-            min_value = fmin(min_value, a_shift[i]);
-            max_value = fmax(max_value, a_shift[i]);
+            min_value = fmin(min_value, a[i]);
+            max_value = fmax(max_value, a[i]);
         }
         if (min_value < 0 && max_value > 0) {
             b[0] = 1.0;
@@ -237,15 +166,11 @@ par_loop(
             b[0] = 0.0;
         }
         for (int j = 0; j < 3; j++) {
-            w[j] = w_q_triangle_1[j];
-            x[j] = x_q_triangle_1[j];
-            y[j] = y_q_triangle_1[j];
-            w[j+3] = w_q_triangle_2[j];
-            x[j+3] = x_q_triangle_2[j];
-            y[j+3] = y_q_triangle_2[j];
-            w[j+6] = w_q_triangle_3[j];
-            x[j+6] = x_q_triangle_3[j];
-            y[j+6] = y_q_triangle_3[j];
+            for (int k = 0; k < 3; k++) {
+                w[3*j+k] = w_q_triangle[j][k];
+                x[3*j+k] = x_q_triangle[j][k];
+                y[3*j+k] = y_q_triangle[j][k];
+            }
         }
     """,
     dx,
@@ -272,6 +197,8 @@ for idx, quadrature in enumerate(quad_indicator.dat.data):
         marker.dat.data[idx] = 1.0
         inv_indicator.dat.data[idx] = 0.0
 
+        print(quad_weights.dat.data[idx])
+        print(quad_x.dat.data[idx])
         print(quad_y.dat.data[idx])
 
         points1 = PointSet(
@@ -288,5 +215,3 @@ integral += assemble(x * inv_indicator * dx)
 print(integral)
 print(assemble(x * dx))
 fd.File("ls.pvd").write(ls)
-
-integral += assemble(x * inv_indicator * dx)
