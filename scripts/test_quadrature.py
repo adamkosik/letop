@@ -9,6 +9,16 @@ from ufl.core.expr import Expr
 def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure, mesh: fd.Mesh) -> fd.Form:
     """ This function modifies the quadrature points in the elements sliced by
     the level-set function. It returns a Form as a sum of integrals.
+
+    Args:
+        f (Expr): Integrand.
+        ls (Function): The level-set function. It should be CG(1) function.
+        dx (Measure):  Integral measure.
+        mesh (Mesh): Domain mesh.
+
+    Returns:
+        Form: A firedrake form will be returned, which can then be assembled.
+
     """
     space_indicator = fd.FunctionSpace(mesh, "DG", 0)
     space_quadrature = fd.VectorFunctionSpace(mesh, "DG", 0, dim=9)
@@ -185,16 +195,22 @@ def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure, mesh: fd.Mesh) 
         }
     )
 
+    # First, we prepare an integral form for all elements not sliced by the
+    # level-set function.
     inv_indicator = fd.Function(space_indicator)
     inv_indicator.assign(1.0)
+    for idx, indicator in enumerate(quad_indicator.dat.data):
+        if indicator == 1.0:
+            inv_indicator.dat.data[idx] = 0.0
     form = f * inv_indicator * dx
 
+    # In the next step, we add all integral forms for all elements sliced by
+    # the level-set function. Each cell has a single integral form.
     for idx, indicator in enumerate(quad_indicator.dat.data):
         if indicator == 1.0:
             marker = fd.Function(space_indicator)
             marker.assign(0.0)
             marker.dat.data[idx] = 1.0
-            inv_indicator.dat.data[idx] = 0.0
 
             points1 = PointSet(
                 np.stack((quad_x.dat.data[idx], quad_y.dat.data[idx]), axis=-1)
@@ -215,7 +231,7 @@ def test_function_integration() -> None:
 
     x, y = fd.SpatialCoordinate(mesh)
     f.interpolate(x)
-    ls.interpolate(x + y - 1.3)
+    ls.interpolate(x + y - 1.31)
 
     integral = integral_level_set(f, ls, dx, mesh)
 
