@@ -6,7 +6,7 @@ from firedrake import READ, WRITE, assemble, dx, par_loop
 from ufl.core.expr import Expr
 
 
-def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure, mesh: fd.Mesh) -> fd.Form:
+def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure) -> fd.Form:
     """ This function modifies the quadrature points in the elements sliced by
     the level-set function. It returns a Form as a sum of integrals.
 
@@ -14,12 +14,18 @@ def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure, mesh: fd.Mesh) 
         f (Expr): Integrand.
         ls (Function): The level-set function. It should be CG(1) function.
         dx (Measure):  Integral measure.
-        mesh (Mesh): Domain mesh.
 
     Returns:
         Form: A firedrake form will be returned, which can then be assembled.
 
     """
+    mesh = ls.function_space().mesh()
+
+    quad_n = fd.Constant((3.0))
+    quad_weights_ref = fd.Constant((1.0 / 6.0, 1.0 / 6.0, 1.0 / 6.0))
+    quad_x_ref = fd.Constant((0, 0.5, 0.5))
+    quad_y_ref = fd.Constant((0.5, 0, 0.5))
+
     space_indicator = fd.FunctionSpace(mesh, "DG", 0)
     space_quadrature = fd.VectorFunctionSpace(mesh, "DG", 0, dim=9)
 
@@ -43,12 +49,7 @@ def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure, mesh: fd.Mesh) 
             double node_flag[3] = { 1,1,1 };	//
             double element_flag = 0;			//
 
-            // Quadrature rule
-            int n_q = 3;
-            double w_q[3] = { 1.0 / 6.0, 1.0 / 6.0, 1.0 / 6.0 };
-            double x_q[3] = { 0, 0.5, 0.5 };
-            double y_q[3] = { 0.5, 0, 0.5 };
-
+            int n_q = n_q_ref[0];
 
             // Flag every nodes and gives a binary representation of the level set function
             // 0,7 -> nothing happens (all negative reps. all positive)
@@ -57,7 +58,7 @@ def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure, mesh: fd.Mesh) 
 
             for (int i = 0; i < 3; i++) {
 
-                min_value = fmin(0, a[i]);
+                min_value = fmin(0, ls[i]);
 
                 if (min_value < 0) {
                     node_flag[i] = 0;
@@ -87,8 +88,8 @@ def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure, mesh: fd.Mesh) 
 
             if (element_flag == 1 || element_flag == 6) {
 
-                crossing_point_x[0] = -a[0] / (a[1] - a[0]); // a[1] and a[0] are different because of the different sign
-                crossing_point_y[1] = -a[0] / (a[2] - a[0]); // a[2] and a[0] are different because of the different sign
+                crossing_point_x[0] = -ls[0] / (ls[1] - ls[0]); // ls[1] and ls[0] are different because of the different sign
+                crossing_point_y[1] = -ls[0] / (ls[2] - ls[0]); // ls[2] and ls[0] are different because of the different sign
 
                 // Transformation for the first triangle
                 triangle_x[0][1] = crossing_point_x[0];
@@ -107,9 +108,9 @@ def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure, mesh: fd.Mesh) 
 
             if (element_flag == 2 || element_flag == 5) {
 
-                crossing_point_x[0] = -a[0] / (a[1] - a[0]);	// See above
-                crossing_point_x[1] = -a[2] / (a[1]-a[2]);
-                crossing_point_y[1] = a[1] / (a[1] - a[2]);
+                crossing_point_x[0] = -ls[0] / (ls[1] - ls[0]);	// See above
+                crossing_point_x[1] = -ls[2] / (ls[1]-ls[2]);
+                crossing_point_y[1] = ls[1] / (ls[1] - ls[2]);
 
                 triangle_x[0][0] = crossing_point_x[0];
                 triangle_x[0][1] = 1.0;
@@ -128,9 +129,9 @@ def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure, mesh: fd.Mesh) 
 
             if (element_flag == 3 || element_flag == 4) {
 
-                crossing_point_x[0] = -a[2] / (a[1] - a[2]);	// See above
-                crossing_point_y[0] = a[1] / (a[1] - a[2]);
-                crossing_point_y[1] = -a[0] / (a[2] - a[0]);
+                crossing_point_x[0] = -ls[2] / (ls[1] - ls[2]);	// See above
+                crossing_point_y[0] = ls[1] / (ls[1] - ls[2]);
+                crossing_point_y[1] = -ls[0] / (ls[2] - ls[0]);
 
                 triangle_y[0][0] = crossing_point_y[1];
                 triangle_x[0][1] = crossing_point_x[0];
@@ -160,22 +161,22 @@ def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure, mesh: fd.Mesh) 
 
                 // Tranformation of the quadrature rule to the subtriangles
                 for (int k = 0; k < n_q; k++) {
-                    w_q_triangle[j][k] = det_triangle[j] * w_q[k];
-                    x_q_triangle[j][k] = B_triangle[j][0][0] * x_q[k] + B_triangle[j][0][1] * y_q[k] + b_triangle[j][0];
-                    y_q_triangle[j][k] = B_triangle[j][1][0] * x_q[k] + B_triangle[j][1][1] * y_q[k] + b_triangle[j][1];
+                    w_q_triangle[j][k] = w_q_ref[k];
+                    x_q_triangle[j][k] = B_triangle[j][0][0] * x_q_ref[k] + B_triangle[j][0][1] * y_q_ref[k] + b_triangle[j][0];
+                    y_q_triangle[j][k] = B_triangle[j][1][0] * x_q_ref[k] + B_triangle[j][1][1] * y_q_ref[k] + b_triangle[j][1];
                 }
 
             }
 
-            for (int i=0; i<a.dofs; i++) {
-                min_value = fmin(min_value, a[i]);
-                max_value = fmax(max_value, a[i]);
+            for (int i=0; i<ls.dofs; i++) {
+                min_value = fmin(min_value, ls[i]);
+                max_value = fmax(max_value, ls[i]);
             }
             if (min_value < 0 && max_value > 0) {
-                b[0] = 1.0;
+                q_ind[0] = 1.0;
             }
             else {
-                b[0] = 0.0;
+                q_ind[0] = 0.0;
             }
             for (int j = 0; j < 3; j++) {
                 for (int k = 0; k < n_q; k++) {
@@ -187,8 +188,12 @@ def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure, mesh: fd.Mesh) 
         """,
         dx,
         {
-            'a': (ls, READ),
-            'b': (quad_indicator, WRITE),
+            'ls': (ls, READ),
+            'n_q_ref': (quad_n, READ),
+            'w_q_ref': (quad_weights_ref, READ),
+            'x_q_ref': (quad_x_ref, READ),
+            'y_q_ref': (quad_y_ref, READ),
+            'q_ind': (quad_indicator, WRITE),
             'x': (quad_x, WRITE),
             'y': (quad_y, WRITE),
             'w': (quad_weights, WRITE),
@@ -218,7 +223,7 @@ def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure, mesh: fd.Mesh) 
             weights1 = quad_weights.dat.data[idx]
             rule2D = QuadratureRule(points1, weights1)
 
-            form += f * marker * dx(rule=rule2D)
+            form += f * marker * dx(scheme=rule2D)
 
     return form
 
@@ -233,7 +238,7 @@ def test_function_integration() -> None:
     f.interpolate(x)
     ls.interpolate(x + y - 1.31)
 
-    integral = integral_level_set(f, ls, dx, mesh)
+    integral = integral_level_set(f, ls, dx)
 
     print(assemble(integral))
 
@@ -256,9 +261,9 @@ def test_helmholtz() -> None:
         (1 + 8 * fd.pi * fd.pi) * fd.cos(x * fd.pi * 2) * fd.cos(y * fd.pi * 2))
 
     a_integrand = fd.inner(fd.grad(u), fd.grad(v)) + fd.inner(u, v)
-    a = integral_level_set(a_integrand, ls, dx, mesh)
+    a = integral_level_set(a_integrand, ls, dx)
     L_integrand = fd.inner(f, v)
-    L = integral_level_set(L_integrand, ls, dx, mesh)
+    L = integral_level_set(L_integrand, ls, dx)
 
     u = fd.Function(V)
     fd.solve(a == L, u, solver_parameters={'ksp_type': 'cg', 'pc_type': 'none'})
