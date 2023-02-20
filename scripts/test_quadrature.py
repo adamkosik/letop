@@ -161,7 +161,7 @@ def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure) -> fd.Form:
 
                 // Tranformation of the quadrature rule to the subtriangles
                 for (int k = 0; k < n_q; k++) {
-                    w_q_triangle[j][k] = w_q_ref[k];
+                    w_q_triangle[j][k] = det_triangle[j] * w_q_ref[k];
                     x_q_triangle[j][k] = B_triangle[j][0][0] * x_q_ref[k] + B_triangle[j][0][1] * y_q_ref[k] + b_triangle[j][0];
                     y_q_triangle[j][k] = B_triangle[j][1][0] * x_q_ref[k] + B_triangle[j][1][1] * y_q_ref[k] + b_triangle[j][1];
                 }
