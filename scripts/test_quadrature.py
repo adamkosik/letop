@@ -23,8 +23,8 @@ def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure) -> fd.Form:
 
     quad_n = fd.Constant((3.0))
     quad_weights_ref = fd.Constant((1.0 / 6.0, 1.0 / 6.0, 1.0 / 6.0))
-    quad_x_ref = fd.Constant((0, 0.5, 0.5))
-    quad_y_ref = fd.Constant((0.5, 0, 0.5))
+    quad_x_ref = fd.Constant((1.0 / 6.0, 1.0 / 6.0, 2.0 / 3.0))
+    quad_y_ref = fd.Constant((1.0 / 6.0, 2.0 / 3.0, 1.0 / 6.0))
 
     space_indicator = fd.FunctionSpace(mesh, "DG", 0)
     space_quadrature = fd.VectorFunctionSpace(mesh, "DG", 0, dim=9)
@@ -46,8 +46,8 @@ def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure) -> fd.Form:
             double min_value = 1e20;
             double max_value = -1e20;
 
-            double node_flag[3] = { 1,1,1 };	//
-            double element_flag = 0;			//
+            int node_flag[3] = {1, 1, 1};	//
+            int element_flag = 0;			//
 
             int n_q = n_q_ref[0];
 
@@ -245,6 +245,83 @@ def test_function_integration() -> None:
     print(assemble(f * dx))
 
 
+def zalesak_disk(x, y) -> fd.Function:
+    x_0 = fd.Constant(0.5)
+    y_0 = fd.Constant(0.5)
+    r = fd.Constant(0.15)
+    h = fd.Constant(0.1)
+    d = fd.Constant(0.05)
+
+    return fd.conditional(
+        fd.And(
+            fd.lt(pow(x - x_0, 2) + pow(y - y_0, 2), pow(r, 2)),
+            fd.Or(fd.gt(abs(x - x_0), d / 2), fd.gt(y, (y_0 + h)))
+        ),
+        1.0,
+        0.0
+    )
+
+
+def heaviside(f, x, y) -> fd.Function:
+    return fd.conditional(
+        fd.lt(f(x, y), 0.0),
+        0.0,
+        1.0
+    )
+
+
+def zalesak_disk_ls(x, y) -> fd.Function:
+    x_0 = fd.Constant(0.5)
+    y_0 = fd.Constant(0.5)
+    r = fd.Constant(0.15)
+    h = fd.Constant(0.1)
+    d = fd.Constant(0.05)
+
+    return fd.conditional(
+        fd.And(fd.lt(abs(x - x_0), d / 2), fd.lt(y, (y_0 + h))),
+        -r,
+        pow(r, 2) - (pow(x - x_0, 2) + pow(y - y_0, 2))
+    )
+
+
+def test_zalesak_integration() -> None:
+    mesh = fd.UnitSquareMesh(10, 10)
+    space_ls = fd.FunctionSpace(mesh, "CG", 1)
+    ls = fd.Function(space_ls)
+    x, y = fd.SpatialCoordinate(mesh)
+    ls.interpolate(zalesak_disk_ls(x, y))
+
+    fd.File("zalesak_ls.pvd").write(ls)
+
+    f = heaviside(zalesak_disk_ls, x, y)
+
+    integral = integral_level_set(f, ls, dx)
+
+    print("Exact: 0.0582207")
+    print(f"dx_integral: {assemble(f * dx)}")
+    print(f"LS_integral: {assemble(integral)}")
+
+
+def linear_function(x, y):
+    return x + 5 * y - 4.11
+
+
+def test_linear_function_integration() -> None:
+    mesh = fd.UnitSquareMesh(16, 16)
+    space_ls = fd.FunctionSpace(mesh, "CG", 1)
+    ls = fd.Function(space_ls)
+    x, y = fd.SpatialCoordinate(mesh)
+    ls.interpolate(linear_function(x, y))
+
+    f = heaviside(linear_function, x, y)
+
+    integral = integral_level_set(f, ls, dx)
+
+    print("Exact: 0.278")
+    print(f"dx_integral: {assemble(f * dx(degree=1))}")
+    print(f"LS_integral: {assemble(integral)}")
+
+
 def test_helmholtz() -> None:
     mesh = fd.UnitSquareMesh(10, 10)
 
@@ -273,4 +350,6 @@ def test_helmholtz() -> None:
 
 if __name__ == "__main__":
     test_function_integration()
+    test_linear_function_integration()
+    test_zalesak_integration()
     test_helmholtz()
