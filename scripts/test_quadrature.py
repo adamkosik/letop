@@ -27,7 +27,7 @@ def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure) -> fd.Form:
     quad_y_ref = fd.Constant((1.0 / 6.0, 2.0 / 3.0, 1.0 / 6.0))
 
     space_indicator = fd.FunctionSpace(mesh, "DG", 0)
-    space_quadrature = fd.VectorFunctionSpace(mesh, "DG", 0, dim=9)
+    space_quadrature = fd.VectorFunctionSpace(mesh, "DG", 0, dim=3 * 3)
 
     quad_indicator = fd.Function(space_indicator)
     quad_indicator.assign(0.0)
@@ -173,10 +173,10 @@ def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure) -> fd.Form:
                 max_value = fmax(max_value, ls[i]);
             }
             if (min_value < 0 && max_value > 0) {
-                q_ind[0] = 1.0;
+                q_ind[0] = 1;
             }
             else {
-                q_ind[0] = 0.0;
+                q_ind[0] = 0;
             }
             for (int j = 0; j < 3; j++) {
                 for (int k = 0; k < n_q; k++) {
@@ -202,37 +202,45 @@ def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure) -> fd.Form:
 
     # First, we prepare an integral form for all elements not sliced by the
     # level-set function.
+    marker_idx = []
+    markers = []
+    rules = []
     inv_indicator = fd.Function(space_indicator)
     inv_indicator.assign(1.0)
     for idx, indicator in enumerate(quad_indicator.dat.data):
         if indicator == 1.0:
             inv_indicator.dat.data[idx] = 0.0
-    form = f * inv_indicator * dx
-
-    # In the next step, we add all integral forms for all elements sliced by
-    # the level-set function. Each cell has a single integral form.
-    for idx, indicator in enumerate(quad_indicator.dat.data):
-        if indicator == 1.0:
             marker = fd.Function(space_indicator)
             marker.assign(0.0)
             marker.dat.data[idx] = 1.0
+            markers.append(marker)
+            marker_idx.append(idx)
 
             points1 = PointSet(
                 np.stack((quad_x.dat.data[idx], quad_y.dat.data[idx]), axis=-1)
             )
             weights1 = quad_weights.dat.data[idx]
-            rule2D = QuadratureRule(points1, weights1)
+            rules.append(QuadratureRule(points1, weights1))
 
-            form += f * marker * dx(scheme=rule2D)
+    relabeled_mesh = fd.RelabeledMesh(mesh, markers, marker_idx)
+
+    form = f * inv_indicator * dx(domain=relabeled_mesh)
+
+    # In the next step, we add all integral forms for all elements sliced by
+    # the level-set function. Each cell has a single integral form.
+    for i, idx in enumerate(marker_idx):
+        form += f * dx(
+            domain=relabeled_mesh, subdomain_id=idx, scheme=rules[i]
+        )
 
     return form
 
 
 def test_function_integration() -> None:
     mesh = fd.UnitSquareMesh(2, 2)
-    S = fd.FunctionSpace(mesh, "CG", 1)
-    f = fd.Function(S)
-    ls = fd.Function(S)
+    space_ls = fd.FunctionSpace(mesh, "CG", 1)
+    f = fd.Function(space_ls)
+    ls = fd.Function(space_ls)
 
     x, y = fd.SpatialCoordinate(mesh)
     f.interpolate(x)
