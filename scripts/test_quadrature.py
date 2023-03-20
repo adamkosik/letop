@@ -228,6 +228,7 @@ def integral_level_set(f: Expr, ls: fd.Function, dx: fd.Measure) -> fd.Form:
     return form
 
 
+# Test functions:
 def test_function_integration() -> None:
     mesh = fd.UnitSquareMesh(2, 2)
     S = fd.FunctionSpace(mesh, "CG", 1)
@@ -245,6 +246,43 @@ def test_function_integration() -> None:
     print(assemble(f * dx))
 
 
+def heaviside(f, x, y) -> fd.Function:
+    return fd.conditional(
+        fd.lt(f(x, y), 0.0),
+        0.0,
+        1.0
+    )
+
+
+def cone(x, y) -> fd.Function:
+    x_0 = fd.Constant(0.5)
+    y_0 = fd.Constant(0.5)
+    r = fd.Constant(0.15)
+    h = fd.Constant(1.0)
+
+    return (
+        h - fd.sqrt((pow(x - x_0, 2) + pow(y - y_0, 2))) / r
+    )
+
+
+def test_cone_integration() -> None:
+    mesh = fd.UnitSquareMesh(10, 10)
+    space_ls = fd.FunctionSpace(mesh, "CG", 1)
+    ls = fd.Function(space_ls)
+    x, y = fd.SpatialCoordinate(mesh)
+    ls.interpolate(cone(x, y))
+
+    fd.File("cone.pvd").write(ls)
+
+    f = heaviside(cone, x, y)
+
+    integral = integral_level_set(f, ls, dx)
+
+    print(f"Exact: {fd.pi * 0.15 ** 2}")
+    print(f"dx_integral: {assemble(f * dx)}")
+    print(f"LS_integral: {assemble(integral)}")
+
+
 def zalesak_disk(x, y) -> fd.Function:
     x_0 = fd.Constant(0.5)
     y_0 = fd.Constant(0.5)
@@ -259,14 +297,6 @@ def zalesak_disk(x, y) -> fd.Function:
         ),
         1.0,
         0.0
-    )
-
-
-def heaviside(f, x, y) -> fd.Function:
-    return fd.conditional(
-        fd.lt(f(x, y), 0.0),
-        0.0,
-        1.0
     )
 
 
@@ -351,5 +381,6 @@ def test_helmholtz() -> None:
 if __name__ == "__main__":
     test_function_integration()
     test_linear_function_integration()
+    test_cone_integration()
     test_zalesak_integration()
     test_helmholtz()
